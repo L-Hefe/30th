@@ -76,13 +76,22 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        /* Flash Animation */
+        /* Flash Animation (Manual Shutter Button Trigger) */
         @keyframes flashEffect {
             0% { opacity: 1; }
             100% { opacity: 0; }
         }
         .flash-active {
             animation: flashEffect 0.8s ease-out forwards;
+        }
+
+        /* Light Flash Animation (Dynamic Scroll Shutter Transition) */
+        @keyframes lightFlashEffect {
+            0% { opacity: 0.35; }
+            100% { opacity: 0; }
+        }
+        .flash-light-active {
+            animation: lightFlashEffect 0.45s ease-out forwards;
         }
 
         /* Custom Keyframe Animation for phone scrolling indicators */
@@ -526,6 +535,7 @@
         let targetScrollPercent = 0;
         let mouseX = 0, mouseY = 0;
         let isAttending = true;
+        let lastSnappedIndex = 1; // Tracks current page exposure to trigger scroll flash
 
         // Web Audio variables for custom interaction feedback
         let audioCtx = null;
@@ -677,6 +687,58 @@
 
             } catch (e) {
                 console.warn("Audio Context blocked or unsupported.", e);
+            }
+        }
+
+        // Quiet, snappy shutter click specifically crafted for scrolling
+        function playLightShutterAudio() {
+            try {
+                if (!audioCtx) return; 
+                if (audioCtx.state === 'suspended') return;
+
+                const currentTime = audioCtx.currentTime;
+
+                // 1. Snappy High-pass Noise Buffer
+                const bufferSize = audioCtx.sampleRate * 0.07; 
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const noiseFilter = audioCtx.createBiquadFilter();
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.setValueAtTime(1100, currentTime); 
+                noiseFilter.Q.setValueAtTime(6, currentTime);
+
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.18, currentTime); 
+                noiseGain.gain.exponentialRampToValueAtTime(0.005, currentTime + 0.05);
+
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                noise.start(currentTime);
+
+                // 2. High release snap click
+                const releaseOsc = audioCtx.createOscillator();
+                const releaseGain = audioCtx.createGain();
+                releaseOsc.type = 'triangle';
+                releaseOsc.frequency.setValueAtTime(1700, currentTime);
+                releaseOsc.frequency.exponentialRampToValueAtTime(450, currentTime + 0.035);
+
+                releaseGain.gain.setValueAtTime(0.15, currentTime);
+                releaseGain.gain.exponentialRampToValueAtTime(0.005, currentTime + 0.035);
+
+                releaseOsc.connect(releaseGain);
+                releaseGain.connect(audioCtx.destination);
+                releaseOsc.start(currentTime);
+                releaseOsc.stop(currentTime + 0.04);
+            } catch (e) {
+                // Audio context block silent safeguard
             }
         }
 
@@ -1486,6 +1548,27 @@
             }
         }
 
+        // Trigger a very gentle camera shutter flash inside the HUD layout on scroll snap transitions
+        function triggerLightScrollShutter() {
+            const flash = document.getElementById('flash-overlay');
+            
+            // Clean active classes to reset keyframe transitions
+            flash.classList.remove('flash-active', 'flash-light-active');
+            void flash.offsetWidth; // Force CSS paint reflow
+            flash.classList.add('flash-light-active');
+
+            // Gently trigger a quick peak on the 3D lighting system
+            if (window.flashLight) {
+                window.flashLight.intensity = 3.5;
+                setTimeout(() => {
+                    window.flashLight.intensity = 0;
+                }, 90);
+            }
+
+            // Synthesize the mechanical click audio clip softly
+            playLightShutterAudio();
+        }
+
         function updateHudElements(progress) {
             const expId = document.getElementById('hud-exp');
             const isoValue = document.getElementById('hud-iso');
@@ -1520,6 +1603,12 @@
         }
 
         function setActiveDot(index) {
+            // Trigger light camera flash transition when active snap exposure changes
+            if (lastSnappedIndex !== index) {
+                lastSnappedIndex = index;
+                triggerLightScrollShutter();
+            }
+
             document.querySelectorAll('.nav-dot').forEach((dot, idx) => {
                 const indicator = dot.querySelector('span:last-child span');
                 if (idx + 1 === index) {
@@ -1542,6 +1631,7 @@
             }
         }
 
+        // Adaptive viewport scaling
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -1612,7 +1702,7 @@
 
         function triggerPhysicalShutter() {
             const flash = document.getElementById('flash-overlay');
-            flash.classList.remove('flash-active');
+            flash.classList.remove('flash-active', 'flash-light-active');
             void flash.offsetWidth; 
             flash.classList.add('flash-active');
             playShutterAudio();
