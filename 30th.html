@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captured at Thirty | Interactive E-Invite</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Editorial / Tech feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght=600;700;800&family=Courier+Prime&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Space Grotesk', 'sans-serif'],
+                        display: ['Syne', 'sans-serif'],
+                        mono: ['Courier Prime', 'monospace'],
+                    },
+                    colors: {
+                        studio: {
+                            gold: '#ffaa44',
+                            neon: '#ff3366',
+                            dark: '#0a0a0c',
+                            card: '#121216',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0a0c;
+            overflow: hidden;
+        }
+
+        /* Analog film grain overlay */
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.045;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        /* Hide scrollbars for the main scroll container */
+        .scroll-container::-webkit-scrollbar {
+            display: none;
+        }
+        .scroll-container {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Glowing Effects */
+        .glow-neon {
+            box-shadow: 0 0 25px rgba(255, 51, 102, 0.4);
+        }
+        .glow-gold {
+            box-shadow: 0 0 25px rgba(255, 170, 68, 0.3);
+        }
+        
+        /* Glassmorphism */
+        .glass {
+            background: rgba(18, 18, 22, 0.75);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Flash Animation */
+        @keyframes flashEffect {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .flash-active {
+            animation: flashEffect 0.8s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="font-sans text-white select-none antialiased">
+
+    <!-- Film Grain -->
+    <div class="grain"></div>
+
+    <!-- Interactive Background Shutter Flash Screen Overlay -->
+    <div id="flash-overlay" class="fixed inset-0 bg-white opacity-0 pointer-events-none z-50"></div>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="fixed inset-0 w-full h-full z-0 pointer-events-none"></div>
+
+    <div class="fixed inset-0 border-[16px] md:border-[24px] border-studio-dark pointer-events-none z-40 flex flex-col justify-between p-4 md:p-8">
+        <!-- Top HUD Row -->
+        <div class="flex justify-between items-center text-xs md:text-sm font-mono text-white/50">
+            <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-studio-neon animate-pulse"></span>
+                <span>REC [RAW]</span>
+            </div>
+            <div class="hidden sm:block">ISO <span id="hud-iso" class="text-white transition-colors duration-300">100</span></div>
+            <div class="hidden sm:block">f/<span id="hud-aperture" class="text-white transition-colors duration-300">1.4</span></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-battery-three-quarters text-studio-gold"></i>
+                <span>30 FPS</span>
+            </div>
+        </div>
+
+        <!-- Center Crosshair Marker -->
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-25 pointer-events-none">
+            <div class="w-10 h-10 border border-white flex items-center justify-center rounded">
+                <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+            </div>
+        </div>
+
+        <!-- Bottom HUD Row -->
+        <div class="flex justify-between items-center text-xs md:text-sm font-mono text-white/50">
+            <div class="flex items-center gap-4">
+                <div>EXP. <span id="hud-exp" class="text-studio-neon font-bold">01</span>/04</div>
+                <div class="hidden md:block">WB <span class="text-white">5600K</span></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="hud-shutter" class="transition-all duration-300">1/125s</span>
+                <i class="fa-solid fa-sd-card"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed right-6 md:right-10 top-1/2 transform -translate-y-1/2 z-40 hidden flex-col gap-6 items-center sm:flex">
+        <div class="h-16 w-[1px] bg-white/10"></div>
+        <div class="flex flex-col gap-4 text-xs font-mono">
+            <button onclick="scrollToSection(1)" id="dot-1" class="nav-dot group flex items-center justify-end gap-3 transition-all outline-none">
+                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] text-white/60">01 SETUP</span>
+                <span class="w-2.5 h-2.5 rounded-full border border-white/40 group-hover:border-studio-neon transition-all bg-transparent flex items-center justify-center"><span class="w-1 h-1 rounded-full bg-studio-neon scale-0 transition-transform duration-300"></span></span>
+            </button>
+            <button onclick="scrollToSection(2)" id="dot-2" class="nav-dot group flex items-center justify-end gap-3 transition-all outline-none">
+                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] text-white/60">02 TIMING</span>
+                <span class="w-2.5 h-2.5 rounded-full border border-white/40 group-hover:border-studio-neon transition-all bg-transparent flex items-center justify-center"><span class="w-1 h-1 rounded-full bg-studio-neon scale-0 transition-transform duration-300"></span></span>
+            </button>
+            <button onclick="scrollToSection(3)" id="dot-3" class="nav-dot group flex items-center justify-end gap-3 transition-all outline-none">
+                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] text-white/60">03 GALLERY</span>
+                <span class="w-2.5 h-2.5 rounded-full border border-white/40 group-hover:border-studio-neon transition-all bg-transparent flex items-center justify-center"><span class="w-1 h-1 rounded-full bg-studio-neon scale-0 transition-transform duration-300"></span></span>
+            </button>
+            <button onclick="scrollToSection(4)" id="dot-4" class="nav-dot group flex items-center justify-end gap-3 transition-all outline-none">
+                <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] text-white/60">04 CAPTURE</span>
+                <span class="w-2.5 h-2.5 rounded-full border border-white/40 group-hover:border-studio-neon transition-all bg-transparent flex items-center justify-center"><span class="w-1 h-1 rounded-full bg-studio-neon scale-0 transition-transform duration-300"></span></span>
+            </button>
+        </div>
+        <div class="h-16 w-[1px] bg-white/10"></div>
+    </div>
+
+    <div id="scroll-wrapper" class="scroll-container relative h-screen w-full overflow-y-scroll snap-y snap-mandatory z-20">
+        
+        <!-- EXPOSURE 01: HERO LANDING -->
+        <section id="section-1" class="snap-start h-screen w-full flex items-center px-6 md:px-16 lg:px-24 xl:px-32 relative">
+            <div class="max-w-2xl text-left flex flex-col justify-center pointer-events-auto mt-12 md:mt-0">
+                <!-- Golden Badge -->
+                <div class="flex items-center gap-2 mb-4 animate-fade-in">
+                    <span class="px-3 py-1 text-xs font-mono tracking-widest bg-studio-gold text-studio-dark font-bold rounded-full">EXPOSURE 30</span>
+                    <span class="h-px w-12 bg-white/30"></span>
+                    <span class="text-xs font-mono text-studio-gold tracking-widest uppercase">THE STUDIO INVITE</span>
+                </div>
+                
+                <!-- Main Title -->
+                <h1 class="font-display text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black uppercase tracking-tight leading-none mb-4 select-text">
+                    SHANELENE <span class="text-transparent bg-clip-text bg-gradient-to-r from-studio-gold via-studio-neon to-purple-600">THIRTY</span>
+                </h1>
+                
+                <!-- Tagline -->
+                <p class="font-sans text-base sm:text-lg md:text-xl text-white/80 max-w-lg mb-8 font-light leading-relaxed select-text">
+                    An interactive, picture-perfect celebration of 30 years in frame. Move through the exposures, focus the lens, and secure your place in the gallery of memories.
+                </p>
+
+                <!-- Action Button -->
+                <div class="flex flex-wrap gap-4 items-center">
+                    <button onclick="scrollToSection(2)" class="px-8 py-3.5 bg-studio-neon hover:bg-studio-neon/80 font-bold tracking-wider text-xs uppercase rounded-full glow-neon transition-all duration-300 flex items-center gap-3">
+                        DISCOVER THE TIMELINE <i class="fa-solid fa-arrow-down animate-bounce"></i>
+                    </button>
+                    <button onclick="scrollToSection(4)" class="px-6 py-3.5 border border-white/20 hover:border-white/50 font-bold tracking-wider text-xs uppercase rounded-full transition-all duration-300 flex items-center gap-2">
+                        RSVP DIRECTLY
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Scroll Indicator -->
+            <div class="absolute bottom-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-1 opacity-60">
+                <span class="text-[10px] font-mono tracking-widest text-white/60">SCROLL DOWN</span>
+                <div class="w-[20px] h-[34px] rounded-full border-2 border-white/30 flex justify-center p-1">
+                    <div class="w-1.5 h-1.5 bg-studio-gold rounded-full animate-ping"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- EXPOSURE 02: PARTY DETAILS -->
+        <section id="section-2" class="snap-start h-screen w-full flex items-center px-6 md:px-16 lg:px-24 xl:px-32 relative">
+            <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mt-12 md:mt-0">
+                
+                <!-- Details Card Left -->
+                <div class="glass p-6 md:p-10 rounded-2xl glow-gold pointer-events-auto flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2 mb-6">
+                            <i class="fa-solid fa-calendar-day text-studio-gold text-lg"></i>
+                            <h2 class="font-display text-2xl md:text-3xl font-extrabold uppercase tracking-wide">DEVELOPING THE PLAN</h2>
+                        </div>
+
+                        <!-- Grid Info -->
+                        <div class="space-y-6 mb-8">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-studio-gold/10 border border-studio-gold/20 flex items-center justify-center shrink-0">
+                                    <i class="fa-regular fa-clock text-studio-gold"></i>
+                                </div>
+                                <div class="select-text">
+                                    <h4 class="text-xs font-mono text-white/50 uppercase tracking-widest">Aperture Time</h4>
+                                    <p class="font-semibold text-base md:text-lg">Saturday, July 18th, 2026</p>
+                                    <p class="text-xs text-white/60 font-mono tracking-wide">Time to be focused (TBA)</p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-studio-neon/10 border border-studio-neon/20 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-map-location-dot text-studio-neon"></i>
+                                </div>
+                                <div class="select-text flex-1">
+                                    <h4 class="text-xs font-mono text-white/50 uppercase tracking-widest">The Focus Studio</h4>
+                                    <p class="font-semibold text-base md:text-lg">61 Marinda Crescent, Kuilsriver</p>
+                                    <a href="https://share.google/edLgattIHNVbTFRkm" target="_blank" class="inline-flex items-center gap-2 mt-1 px-3 py-1 text-xs bg-studio-neon/20 hover:bg-studio-neon/30 text-studio-neon hover:text-white rounded font-mono border border-studio-neon/20 transition-all">
+                                        <i class="fa-solid fa-location-dot"></i> VIEW GOOGLE MAP
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-purple-600/10 border border-purple-600/20 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-camera text-purple-400"></i>
+                                </div>
+                                <div class="select-text">
+                                    <h4 class="text-xs font-mono text-white/50 uppercase tracking-widest">Dress Exposure</h4>
+                                    <p class="font-semibold text-base md:text-lg">Camera Ready!</p>
+                                    <p class="text-xs text-white/60">Dress up, strike a pose, and have fun with it—dress to impress the lens!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-white/10 pt-4 flex justify-between items-center text-xs font-mono text-white/40">
+                        <span>LATITUDE: 33.9056° S</span>
+                        <span>LONGITUDE: 18.6811° E</span>
+                    </div>
+                </div>
+
+                <!-- Right Blank Spacer/Aesthetic Text to frame the 3D Object rotating in space -->
+                <div class="hidden lg:flex flex-col justify-center text-left pl-12 pointer-events-none select-none">
+                    <h3 class="font-mono text-xs text-studio-gold tracking-widest uppercase mb-4">// ISO 400 • F/2.8</h3>
+                    <h2 class="font-display text-5xl font-black uppercase leading-tight tracking-tight mb-4">
+                        A NIGHT IN <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-studio-gold to-white">HIGH CONTRAST</span>
+                    </h2>
+                    <p class="text-sm text-white/50 max-w-sm font-light leading-relaxed">
+                        The physical camera changes rotation in real-time as you scroll. Take note of the flash modules setup to spotlight our guest list.
+                    </p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- EXPOSURE 03: THE GALLERY LAB (Interactive Polaroids Highlight) -->
+        <section id="section-3" class="snap-start h-screen w-full flex items-center px-6 md:px-16 lg:px-24 xl:px-32 relative">
+            <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mt-12 md:mt-0">
+                
+                <!-- Left Empty / Aesthetic spacer for the 3D rotating Polaroid models -->
+                <div class="hidden lg:flex flex-col justify-center text-left pr-12 pointer-events-none select-none">
+                    <h3 class="font-mono text-xs text-studio-neon tracking-widest uppercase mb-4">// SHUTTER 1/250 • FLASH ON</h3>
+                    <h2 class="font-display text-5xl font-black uppercase leading-tight tracking-tight mb-4">
+                        DEVELOPING <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-studio-neon to-white">THE GALLERY</span>
+                    </h2>
+                    <p class="text-sm text-white/50 max-w-sm font-light leading-relaxed">
+                        Watch individual polaroids develop and emerge directly from the lens as we traverse the 30th year timeline. Touch or hover over the interactive cards.
+                    </p>
+                </div>
+
+                <!-- Right Side Experience Grid Cards -->
+                <div class="space-y-4 pointer-events-auto">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-3 py-1 text-[10px] font-mono tracking-widest bg-studio-neon text-white font-bold rounded">STUDIO EXCLUSIVES</span>
+                    </div>
+
+                    <!-- Polaroid List Card 1 -->
+                    <div class="glass p-4 rounded-xl hover:scale-[1.02] hover:border-studio-neon/40 transition-all duration-300 cursor-pointer flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-glass-water text-2xl text-studio-gold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-display font-bold text-lg uppercase">BYOB & Refreshments</h3>
+                            <p class="text-xs text-white/60 font-sans">Bring along your favorite drinks to keep your cup filled! Cooldrinks, sodas, and ice will be fully provided on the side.</p>
+                        </div>
+                    </div>
+
+                    <!-- Polaroid List Card 2 -->
+                    <div class="glass p-4 rounded-xl hover:scale-[1.02] hover:border-studio-neon/40 transition-all duration-300 cursor-pointer flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-bolt-lightning text-2xl text-studio-neon"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-display font-bold text-lg uppercase">Flash Photobooth Lab</h3>
+                            <p class="text-xs text-white/60 font-sans">Step in front of the commercial flash strobe light ring to capture and print high-fashion physical portraits.</p>
+                        </div>
+                    </div>
+
+                    <!-- Polaroid List Card 3 -->
+                    <div class="glass p-4 rounded-xl hover:scale-[1.02] hover:border-studio-neon/40 transition-all duration-300 cursor-pointer flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                            <i class="fa-brands fa-spotify text-2xl text-purple-400"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-display font-bold text-lg uppercase">Spotify Soundtrack</h3>
+                            <p class="text-xs text-white/60 font-sans">A curated playlist streaming directly to our studio speakers, keeping the room in high dynamic focus all night long.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- EXPOSURE 04: FOCUS / RSVP FORM -->
+        <section id="section-4" class="snap-start h-screen w-full flex items-center justify-center px-6 md:px-16 lg:px-24 xl:px-32 relative">
+            
+            <div id="rsvp-card" class="glass w-full max-w-xl p-6 md:p-8 rounded-2xl glow-neon pointer-events-auto transition-all duration-500 relative overflow-hidden">
+                <!-- Retro film strip top aesthetic -->
+                <div class="absolute top-0 left-0 right-0 h-2 bg-studio-dark flex justify-between px-4">
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                    <span class="w-2.5 h-full bg-white/15"></span>
+                </div>
+                
+                <div class="text-center mb-6 mt-4">
+                    <span class="text-xs font-mono text-studio-neon uppercase tracking-widest">// TARGET ACQUIRED</span>
+                    <h2 class="font-display text-3xl md:text-4xl font-extrabold uppercase mt-1">SECURE THE FRAME</h2>
+                    <p class="text-xs text-white/60 font-sans">Submit your exposure profile to register on our birthday guest-list.</p>
+                </div>
+
+                <!-- RSVP FORM -->
+                <form id="rsvpForm" onsubmit="handleFormSubmit(event)" class="space-y-4 text-left">
+                    <div>
+                        <label class="block text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1.5">First & Last Name</label>
+                        <input required type="text" id="rsvp-name" class="w-full bg-white/5 border border-white/10 hover:border-white/25 focus:border-studio-neon rounded-lg py-2.5 px-4 text-sm outline-none transition-colors" placeholder="e.g. Jane Doe">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Camera Toggle Switch for Attendance -->
+                        <div>
+                            <label class="block text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1.5">Attendance Status</label>
+                            <div class="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-lg border border-white/10">
+                                <button type="button" onclick="setAttendance(true)" id="btn-attending-yes" class="py-2 px-3 text-xs font-bold rounded-md bg-studio-neon text-white transition-all">
+                                    IN FRAME
+                                </button>
+                                <button type="button" onclick="setAttendance(false)" id="btn-attending-no" class="py-2 px-3 text-xs font-bold rounded-md text-white/60 hover:text-white transition-all">
+                                    OUT OF FOCUS
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1.5">Guests Count (Aperture size)</label>
+                            <select id="rsvp-guests" class="w-full bg-white/5 border border-white/10 focus:border-studio-neon rounded-lg py-2.5 px-4 text-sm outline-none transition-colors text-white">
+                                <option value="1" class="bg-studio-dark text-white">Just Me (Single Frame)</option>
+                                <option value="2" class="bg-studio-dark text-white">Me + Guest (Double Exposure)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Custom Shutter Submit Button -->
+                    <button type="submit" class="w-full bg-gradient-to-r from-studio-gold via-studio-neon to-purple-600 hover:from-studio-gold/90 hover:to-purple-600/90 py-3.5 px-6 font-bold uppercase text-xs tracking-wider rounded-xl transition-all glow-neon flex items-center justify-center gap-2 mt-2">
+                        <i class="fa-solid fa-camera-retro text-base"></i> TRIGGER SHUTTER & RSVP
+                    </button>
+                </form>
+
+                <!-- Captured Success Overlay Inside the Card (Initially Hidden) -->
+                <div id="success-overlay" class="absolute inset-0 bg-studio-card/95 flex flex-col items-center justify-center p-8 text-center opacity-0 pointer-events-none transition-all duration-500 scale-95 z-20">
+                    <div class="w-16 h-16 rounded-full bg-studio-neon/20 border border-studio-neon flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-check text-2xl text-studio-neon"></i>
+                    </div>
+                    <span class="text-[10px] font-mono text-studio-gold uppercase tracking-widest">EXPOSURE CAPTURED SUCCESSFULLY</span>
+                    <h3 class="font-display text-2xl md:text-3xl font-extrabold uppercase mt-1 mb-2">YOU ARE IN FRAME!</h3>
+                    <p class="text-sm text-white/70 max-w-sm leading-relaxed mb-6 font-sans">
+                        We have logged your invitation setting. Prepare for an unforgettable, high-contrast evening. See you in the gallery of memories!
+                    </p>
+                    <button onclick="resetRsvpForm()" class="px-6 py-2.5 border border-white/20 hover:border-white/50 font-mono text-xs uppercase rounded-full transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-rotate-left"></i> EDIT EXPOSURE SETTINGS
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Import Three.js via Cloudflare CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Interactive Logic & WebGL Assembly -->
+    <script>
+        let scene, camera, renderer, cameraGroup, neonGroup, points;
+        let spotlightLeft, spotlightRight, coneLeft, coneRight;
+        let polaroids = [];
+        let polaroidCanvases = [];
+        let polaroidTextures = [];
+        
+        // Metadata details describing polaroid layouts for procedural updates (Fixed with verified filenames)
+        const polaroidMeta = [
+            { title: "SHANELENE'S 30TH", sub: "JULY 18", path: "WhatsApp Image 2026-06-16 at 7.56.17 (1).jpeg", fallbackGrad: ["#ffaa44", "#ff3366"] },
+            { title: "BYOB & CO.", sub: "CHILLED DRINKS", path: "WhatsApp Image 2026-06-16 at 07.56.17.jpeg", fallbackGrad: ["#a855f7", "#3b82f6"] },
+            { title: "SPOTIFY VIBES", sub: "SPEAKER LIVE", path: "WhatsApp Image 2026-06-16 at 07.56.16.jpeg", fallbackGrad: ["#00f2fe", "#4facfe"] }
+        ];
+
+        let scrollPercent = 0;
+        let targetScrollPercent = 0;
+        let mouseX = 0, mouseY = 0;
+        let isAttending = true;
+
+        // Custom Web Audio API Camera Sound Synthesizer
+        let audioCtx = null;
+        function playShutterAudio() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // Resume audio context if suspended (browser security)
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const currentTime = audioCtx.currentTime;
+
+                // 1. Shutter Mechanical Noise Buffer
+                const bufferSize = audioCtx.sampleRate * 0.12; // 0.12 seconds
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const noiseFilter = audioCtx.createBiquadFilter();
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.setValueAtTime(800, currentTime);
+                noiseFilter.Q.setValueAtTime(4, currentTime);
+
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.5, currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.1);
+
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                noise.start(currentTime);
+
+                // 2. High-pitched Click/Slap (Mechanical Release)
+                const releaseOsc = audioCtx.createOscillator();
+                const releaseGain = audioCtx.createGain();
+                releaseOsc.type = 'triangle';
+                releaseOsc.frequency.setValueAtTime(1400, currentTime);
+                releaseOsc.frequency.exponentialRampToValueAtTime(200, currentTime + 0.05);
+
+                releaseGain.gain.setValueAtTime(0.6, currentTime);
+                releaseGain.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.05);
+
+                releaseOsc.connect(releaseGain);
+                releaseGain.connect(audioCtx.destination);
+                releaseOsc.start(currentTime);
+                releaseOsc.stop(currentTime + 0.06);
+
+            } catch (e) {
+                console.warn("Audio Context init blocked or not supported on this platform.", e);
+            }
+        }
+
+        function initWebGL() {
+            const container = document.getElementById('canvas-container');
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.focusAt = new THREE.Vector3(0,0,0);
+            scene.fog = new THREE.FogExp2(0x0a0a0c, 0.08);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+            camera.position.set(0, 0, 5);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            container.appendChild(renderer.domElement);
+
+            // Add Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
+            scene.add(ambientLight);
+
+            // Dynamic Point Light (Flashes occasionally)
+            const flashLight = new THREE.PointLight(0xffffff, 0, 15);
+            flashLight.position.set(0, 2, 2);
+            scene.add(flashLight);
+            window.flashLight = flashLight;
+
+            // Directional Light for general metallic sheen
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            dirLight.position.set(5, 5, 5);
+            scene.add(dirLight);
+
+            // Volumetric Studio Spotlights
+            createStudioSpotlights();
+
+            // Create groups for transformation separation
+            cameraGroup = new THREE.Group();
+            neonGroup = new THREE.Group();
+            scene.add(cameraGroup);
+            scene.add(neonGroup);
+
+            // Assemble camera model inside cameraGroup
+            assemble3DCamera();
+
+            // Assemble neon "30" sign inside neonGroup
+            assemble3DNeonSign();
+
+            // Assemble floating Polaroids
+            assemble3DPolaroids();
+
+            // Build particle dust motes
+            createAtmosphericParticles();
+
+            // Set Initial positions based on Hero page (Scroll 0)
+            updateThreeJSPositions(0);
+
+            // Set up event listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+            
+            // Add touch listener for subtle touch interaction on mobile
+            document.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    mouseX = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+                    mouseY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+                }
+            }, { passive: true });
+        }
+
+        function createVolumetricCone(colorValue, rotationZ) {
+            const coneGeo = new THREE.ConeGeometry(1.2, 7, 32, 1, true);
+            coneGeo.translate(0, -3.5, 0); // Translate anchor to pivot from tip
+            const coneMat = new THREE.MeshBasicMaterial({
+                color: colorValue,
+                transparent: true,
+                opacity: 0.12,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const cone = new THREE.Mesh(coneGeo, coneMat);
+            cone.rotation.z = rotationZ;
+            return cone;
+        }
+
+        // Generate Studio Light modules
+        function createStudioSpotlights() {
+            spotlightLeft = new THREE.SpotLight(0xffaa44, 4, 15, Math.PI / 4, 0.5, 1);
+            spotlightLeft.position.set(-4, 3.5, 2);
+            spotlightLeft.castShadow = true;
+            scene.add(spotlightLeft);
+
+            spotlightRight = new THREE.SpotLight(0xff3366, 3, 15, Math.PI / 4, 0.5, 1);
+            spotlightRight.position.set(4, 3.5, 2);
+            spotlightRight.castShadow = true;
+            scene.add(spotlightRight);
+
+            const spotGeo = new THREE.CylinderGeometry(0.2, 0.3, 0.6, 16);
+            const spotMat = new THREE.MeshStandardMaterial({ color: 0x1c1c22, roughness: 0.6 });
+
+            const leftBox = new THREE.Mesh(spotGeo, spotMat);
+            leftBox.position.copy(spotlightLeft.position);
+            leftBox.lookAt(0, 0, 0);
+            leftBox.rotateX(Math.PI / 2);
+            scene.add(leftBox);
+
+            const rightBox = new THREE.Mesh(spotGeo, spotMat);
+            rightBox.position.copy(spotlightRight.position);
+            rightBox.lookAt(0, 0, 0);
+            rightBox.rotateX(Math.PI / 2);
+            scene.add(rightBox);
+
+            coneLeft = createVolumetricCone(0xffaa44, Math.PI / 6);
+            coneLeft.position.copy(spotlightLeft.position);
+            coneLeft.lookAt(0, 0, 0);
+            coneLeft.rotateX(Math.PI / 2);
+            scene.add(coneLeft);
+
+            coneRight = createVolumetricCone(0xff3366, -Math.PI / 6);
+            coneRight.position.copy(spotlightRight.position);
+            coneRight.lookAt(0, 0, 0);
+            coneRight.rotateX(Math.PI / 2);
+            scene.add(coneRight);
+        }
+
+        function assemble3DCamera() {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x121215, roughness: 0.45, metalness: 0.85 });
+            const silverMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.25, metalness: 0.9 });
+            const lensMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.95 });
+            const glassMat = new THREE.MeshPhysicalMaterial({ 
+                color: 0x00a8ff, 
+                roughness: 0.05, 
+                transmission: 0.95, 
+                thickness: 1.2, 
+                clearcoat: 1.0,
+                emissive: 0x002244
+            });
+
+            // Camera Base Body Block
+            const bodyGeo = new THREE.BoxGeometry(2.2, 1.3, 0.8);
+            const cameraBody = new THREE.Mesh(bodyGeo, bodyMat);
+            cameraBody.castShadow = true;
+            cameraBody.receiveShadow = true;
+            cameraGroup.add(cameraBody);
+
+            // Silver Top Plate
+            const topPlateGeo = new THREE.BoxGeometry(2.2, 0.2, 0.82);
+            const topPlate = new THREE.Mesh(topPlateGeo, silverMat);
+            topPlate.position.y = 0.7;
+            cameraGroup.add(topPlate);
+
+            // Leather grip wraps
+            const gripGeo = new THREE.BoxGeometry(0.8, 1.26, 0.81);
+            const leftGrip = new THREE.Mesh(gripGeo, new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 }));
+            leftGrip.position.set(-0.65, 0, 0.01);
+            cameraGroup.add(leftGrip);
+
+            // Main Lens Barrel
+            const barrelGroup = new THREE.Group();
+            barrelGroup.position.set(0.15, 0.05, 0.4);
+
+            const cylGeo1 = new THREE.CylinderGeometry(0.65, 0.65, 0.6, 32);
+            cylGeo1.rotateX(Math.PI / 2);
+            const barrelSegment1 = new THREE.Mesh(cylGeo1, lensMat);
+            barrelSegment1.castShadow = true;
+            barrelGroup.add(barrelSegment1);
+
+            // Ring aperture details on barrel
+            const cylGeo2 = new THREE.CylinderGeometry(0.67, 0.67, 0.1, 32);
+            cylGeo2.rotateX(Math.PI / 2);
+            const ring1 = new THREE.Mesh(cylGeo2, silverMat);
+            ring1.position.z = 0.15;
+            barrelGroup.add(ring1);
+
+            const ring2 = new THREE.Mesh(cylGeo2, lensMat);
+            ring2.position.z = 0.25;
+            barrelGroup.add(ring2);
+
+            // Glass Lens inside barrel
+            const glassGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.05, 32);
+            glassGeo.rotateX(Math.PI / 2);
+            const glassElement = new THREE.Mesh(glassGeo, glassMat);
+            glassElement.position.z = 0.31;
+            barrelGroup.add(glassElement);
+
+            cameraGroup.add(barrelGroup);
+
+            // Viewfinder glass panel (top left front)
+            const vfGeo = new THREE.BoxGeometry(0.35, 0.2, 0.1);
+            const vf = new THREE.Mesh(vfGeo, new THREE.MeshPhysicalMaterial({ color: 0x55ffaa, roughness: 0.1, transmission: 0.8 }));
+            vf.position.set(-0.6, 0.4, 0.4);
+            cameraGroup.add(vf);
+
+            // Shutter Speed dial (top plate)
+            const dialGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 24);
+            const dial = new THREE.Mesh(dialGeo, silverMat);
+            dial.position.set(-0.5, 0.85, 0);
+            cameraGroup.add(dial);
+
+            // Shutter Button (top plate)
+            const shutterBtnGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.15, 24);
+            const shutterBtn = new THREE.Mesh(shutterBtnGeo, silverMat);
+            shutterBtn.position.set(0.6, 0.82, 0.1);
+            cameraGroup.add(shutterBtn);
+
+            const shutterBtnRedGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.02, 24);
+            const shutterBtnRed = new THREE.Mesh(shutterBtnRedGeo, new THREE.MeshStandardMaterial({ color: 0xff3366, roughness: 0.2 }));
+            shutterBtnRed.position.set(0.6, 0.9, 0.1);
+            cameraGroup.add(shutterBtnRed);
+
+            // Vintage mechanical Red Dot symbol (Front face)
+            const redDotGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16);
+            redDotGeo.rotateX(Math.PI / 2);
+            const redDot = new THREE.Mesh(redDotGeo, new THREE.MeshStandardMaterial({ color: 0xff3366, roughness: 0.3 }));
+            redDot.position.set(-0.65, 0.05, 0.41);
+            cameraGroup.add(redDot);
+        }
+
+        function assemble3DNeonSign() {
+            const neonColor = 0xff3366;
+            const neonMat = new THREE.MeshStandardMaterial({ 
+                color: neonColor, 
+                emissive: neonColor, 
+                emissiveIntensity: 2.2, 
+                roughness: 0.1 
+            });
+
+            // Let's create the character '3' out of two torus loops
+            const torusGeo3_top = new THREE.TorusGeometry(0.5, 0.07, 16, 100, Math.PI * 1.4);
+            const t3_top = new THREE.Mesh(torusGeo3_top, neonMat);
+            t3_top.position.set(-0.6, 0.38, 0);
+            t3_top.rotation.z = -Math.PI / 3.5;
+            neonGroup.add(t3_top);
+
+            const torusGeo3_bot = new THREE.TorusGeometry(0.5, 0.07, 16, 100, Math.PI * 1.4);
+            const t3_bot = new THREE.Mesh(torusGeo3_bot, neonMat);
+            t3_bot.position.set(-0.6, -0.42, 0);
+            t3_bot.rotation.z = -Math.PI / 1.15;
+            neonGroup.add(t3_bot);
+
+            // Let's create '0' out of a solid oval-stretched torus
+            const torusGeo0 = new THREE.TorusGeometry(0.7, 0.07, 16, 100);
+            const t0 = new THREE.Mesh(torusGeo0, neonMat);
+            t0.position.set(0.6, -0.02, 0);
+            t0.scale.set(0.8, 1.2, 1.0); // Slightly tall oval '0'
+            neonGroup.add(t0);
+
+            // Backing framework rails
+            const metalBackMat = new THREE.MeshStandardMaterial({ color: 0x222226, roughness: 0.6, metalness: 0.9 });
+            const railGeo = new THREE.BoxGeometry(2.6, 0.03, 0.03);
+            const rail1 = new THREE.Mesh(railGeo, metalBackMat);
+            const rail2 = new THREE.Mesh(railGeo, metalBackMat);
+            rail1.position.set(0, 0.4, -0.12);
+            rail2.position.set(0, -0.4, -0.12);
+            neonGroup.add(rail1, rail2);
+        }
+
+        function createPolaroidTexture(index, title, textLine2, imagePath, colorStart, colorEnd) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            polaroidCanvases[index] = canvas;
+
+            // Draw clean polaroid card base
+            ctx.fillStyle = '#f8f8fb';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Set a temporary premium background gradient while loading the actual image
+            const grad = ctx.createLinearGradient(40, 40, 472, 400);
+            grad.addColorStop(0, colorStart);
+            grad.addColorStop(1, colorEnd);
+            ctx.fillStyle = grad;
+            ctx.fillRect(40, 40, 432, 360);
+
+            // Draw abstract aesthetic details for placeholder state
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.beginPath();
+            ctx.arc(256, 220, 80, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Label Title details below
+            ctx.fillStyle = '#1c1c22';
+            ctx.font = 'bold 34px "Space Grotesk", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(title, 256, 445);
+
+            // Label Subtitle details below
+            ctx.fillStyle = '#ff3366';
+            ctx.font = 'bold 16px "Courier Prime", monospace';
+            ctx.fillText(textLine2, 256, 480);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            polaroidTextures[index] = texture;
+
+            // Load the assigned image asynchronously from local relative folder path (WITHOUT crossOrigin to support file://)
+            const img = new Image();
+            img.onload = function() {
+                // Clear the photo frame area
+                ctx.fillStyle = '#f8f8fb';
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Draw cropped image inside the frame to keep original proportion
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(40, 40, 432, 360);
+                ctx.clip();
+
+                const imgRatio = img.width / img.height;
+                const frameRatio = 432 / 360;
+                let drawW, drawH, drawX, drawY;
+
+                if (imgRatio > frameRatio) {
+                    drawH = 360;
+                    drawW = 360 * imgRatio;
+                    drawX = 40 + (432 - drawW) / 2;
+                    drawY = 40;
+                } else {
+                    drawW = 432;
+                    drawH = 432 / imgRatio;
+                    drawX = 40;
+                    drawY = 40 + (360 - drawH) / 2;
+                }
+
+                ctx.drawImage(img, drawX, drawY, drawW, drawH);
+                ctx.restore();
+
+                // Re-apply typography on top of polaroid base layout
+                ctx.fillStyle = '#1c1c22';
+                ctx.font = 'bold 34px "Space Grotesk", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(title, 256, 445);
+
+                ctx.fillStyle = '#ff3366';
+                ctx.font = 'bold 16px "Courier Prime", monospace';
+                ctx.fillText(textLine2, 256, 480);
+
+                texture.needsUpdate = true;
+            };
+
+            img.onerror = function() {
+                console.warn(`Could not load local file: "${imagePath}". Showing custom procedural gradient.`);
+            };
+
+            // Set image source relative to index.html file location
+            img.src = imagePath;
+            return texture;
+        }
+
+        function assemble3DPolaroids() {
+            const cardGeo = new THREE.BoxGeometry(1.6, 1.8, 0.04);
+            
+            // Generate polaroid texture elements using custom local image files
+            polaroidMeta.forEach((meta, idx) => {
+                const tex = createPolaroidTexture(
+                    idx, 
+                    meta.title, 
+                    meta.sub, 
+                    meta.path, 
+                    meta.fallbackGrad[0], 
+                    meta.fallbackGrad[1]
+                );
+                const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 });
+                const pol = new THREE.Mesh(cardGeo, mat);
+                pol.castShadow = true;
+                pol.receiveShadow = true;
+                
+                // Position offset structures
+                if (idx === 0) {
+                    pol.position.set(-2, 0.5, -1);
+                    pol.rotation.set(-0.2, 0.4, -0.3);
+                } else if (idx === 1) {
+                    pol.position.set(2, -0.5, -0.5);
+                    pol.rotation.set(0.3, -0.4, 0.25);
+                } else {
+                    pol.position.set(-1.8, -1.8, -1.2);
+                    pol.rotation.set(-0.15, 0.1, -0.1);
+                }
+                
+                scene.add(pol);
+                polaroids.push(pol);
+            });
+        }
+
+        // Creates a background system of particles representing ambient light dust or film static
+        function createAtmosphericParticles() {
+            const particleCount = 280;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const scales = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                // Spread particles within a cubic grid around focus area
+                positions[i * 3] = (Math.random() - 0.5) * 12;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 6;
+
+                scales[i] = Math.random() * 0.08 + 0.02;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
+
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 16;
+            pCanvas.height = 16;
+            const pCtx = pCanvas.getContext('2d');
+            const pGrad = pCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
+            pGrad.addColorStop(0, 'rgba(255,255,255,1)');
+            pGrad.addColorStop(1, 'rgba(255,255,255,0)');
+            pCtx.fillStyle = pGrad;
+            pCtx.fillRect(0, 0, 16, 16);
+            const pTex = new THREE.CanvasTexture(pCanvas);
+
+            const material = new THREE.PointsMaterial({
+                size: 0.12,
+                map: pTex,
+                transparent: true,
+                opacity: 0.55,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            points = new THREE.Points(geometry, material);
+            scene.add(points);
+        }
+
+        function updateThreeJSPositions(scrollProgress) {
+            const isMobile = window.innerWidth < 768;
+            const mobileOffset = isMobile ? 0.6 : 1.0;
+
+            if (scrollProgress <= 0.33) {
+                const t = scrollProgress / 0.33;
+
+                cameraGroup.position.x = THREE.MathUtils.lerp(0, isMobile ? 0 : -2.0, t);
+                cameraGroup.position.y = THREE.MathUtils.lerp(0.1, isMobile ? 1.0 : 0.4, t);
+                cameraGroup.position.z = THREE.MathUtils.lerp(0.5, isMobile ? -1.0 : 0, t);
+                cameraGroup.rotation.y = THREE.MathUtils.lerp(0.1, 0.45, t);
+                cameraGroup.rotation.x = THREE.MathUtils.lerp(0.1, -0.1, t);
+
+                neonGroup.position.set(0, 1.2 * mobileOffset, -2.5);
+                neonGroup.scale.set(1, 1, 1);
+                neonGroup.rotation.set(0.1, 0.2, 0);
+
+                coneLeft.opacity = 0.12 + (t * 0.08);
+                coneRight.opacity = 0.12 + (t * 0.08);
+
+                polaroids[0].position.set(-2, 0.5, -4);
+                polaroids[1].position.set(2, -0.5, -4);
+                polaroids[2].position.set(-1.8, -1.8, -4);
+
+            } else if (scrollProgress > 0.33 && scrollProgress <= 0.66) {
+                const t = (scrollProgress - 0.33) / 0.33;
+
+                cameraGroup.position.x = THREE.MathUtils.lerp(isMobile ? 0 : -2.0, isMobile ? 0 : 2.0, t);
+                cameraGroup.position.y = THREE.MathUtils.lerp(isMobile ? 1.0 : 0.4, isMobile ? -1.4 : -0.8, t);
+                cameraGroup.position.z = THREE.MathUtils.lerp(isMobile ? -1.0 : 0, -0.8, t);
+                cameraGroup.rotation.y = THREE.MathUtils.lerp(0.45, -0.5, t);
+
+                // Polaroid 1 floating close
+                polaroids[0].position.x = THREE.MathUtils.lerp(-2, isMobile ? -0.4 : -1.8, t);
+                polaroids[0].position.y = THREE.MathUtils.lerp(0.5, isMobile ? 1.1 : 0.6, t);
+                polaroids[0].position.z = THREE.MathUtils.lerp(-4, isMobile ? 1.2 : 1.4, t);
+                polaroids[0].rotation.z = -0.3 + (t * 0.15);
+
+                // Polaroid 2 floating close
+                polaroids[1].position.x = THREE.MathUtils.lerp(2, isMobile ? 0.5 : 1.8, t);
+                polaroids[1].position.y = THREE.MathUtils.lerp(-0.5, isMobile ? -0.1 : -0.2, t);
+                polaroids[1].position.z = THREE.MathUtils.lerp(-4, isMobile ? 1.0 : 1.5, t);
+                polaroids[1].rotation.z = 0.25 - (t * 0.1);
+
+                // Polaroid 3 floating close
+                polaroids[2].position.x = THREE.MathUtils.lerp(-1.8, isMobile ? -0.5 : -1.2, t);
+                polaroids[2].position.y = THREE.MathUtils.lerp(-1.8, isMobile ? -1.2 : -1.4, t);
+                polaroids[2].position.z = THREE.MathUtils.lerp(-4, isMobile ? 0.8 : 1.2, t);
+                polaroids[2].rotation.z = -0.1 + (t * 0.05);
+
+                neonGroup.position.set(0, 1.2 * mobileOffset, -2.5);
+                neonGroup.rotation.y = 0.2 + (t * 0.4);
+
+            } else {
+                const t = (scrollProgress - 0.66) / 0.34;
+
+                cameraGroup.position.x = THREE.MathUtils.lerp(isMobile ? 0 : 2.0, 0, t);
+                cameraGroup.position.y = THREE.MathUtils.lerp(isMobile ? -1.4 : -0.8, isMobile ? -1.5 : -1.0, t);
+                cameraGroup.position.z = THREE.MathUtils.lerp(-0.8, isMobile ? 2.1 : 2.4, t);
+                cameraGroup.rotation.y = THREE.MathUtils.lerp(-0.5, 0, t);
+                cameraGroup.rotation.x = THREE.MathUtils.lerp(-0.1, -0.25, t);
+
+                neonGroup.position.x = THREE.MathUtils.lerp(0, 0, t);
+                neonGroup.position.y = THREE.MathUtils.lerp(1.2 * mobileOffset, isMobile ? 1.4 : 1.2, t);
+                neonGroup.position.z = THREE.MathUtils.lerp(-2.5, -2.0, t);
+                neonGroup.rotation.y = 0.6 - (t * 0.6);
+
+                polaroids[0].position.x = THREE.MathUtils.lerp(isMobile ? -0.4 : -1.8, isMobile ? -2.0 : -3.5, t);
+                polaroids[0].position.y = THREE.MathUtils.lerp(isMobile ? 1.1 : 0.6, 1.5, t);
+                
+                polaroids[1].position.x = THREE.MathUtils.lerp(isMobile ? 0.5 : 1.8, isMobile ? 2.0 : 3.5, t);
+                polaroids[1].position.y = THREE.MathUtils.lerp(isMobile ? -0.1 : -0.2, 0.8, t);
+
+                polaroids[2].position.y = THREE.MathUtils.lerp(isMobile ? -1.2 : -1.4, -2.5, t);
+            }
+        }
+
+        function updateHudElements(progress) {
+            const expId = document.getElementById('hud-exp');
+            const isoValue = document.getElementById('hud-iso');
+            const apertureValue = document.getElementById('hud-aperture');
+            const shutterValue = document.getElementById('hud-shutter');
+            
+            if (progress <= 0.28) {
+                expId.innerText = "01";
+                isoValue.innerText = "100";
+                apertureValue.innerText = "1.4";
+                shutterValue.innerText = "1/125s";
+                setActiveDot(1);
+            } else if (progress > 0.28 && progress <= 0.62) {
+                expId.innerText = "02";
+                isoValue.innerText = "400";
+                apertureValue.innerText = "2.8";
+                shutterValue.innerText = "1/250s";
+                setActiveDot(2);
+            } else if (progress > 0.62 && progress <= 0.88) {
+                expId.innerText = "03";
+                isoValue.innerText = "800";
+                apertureValue.innerText = "4.0";
+                shutterValue.innerText = "1/500s";
+                setActiveDot(3);
+            } else {
+                expId.innerText = "04";
+                isoValue.innerText = "1600";
+                apertureValue.innerText = "8.0";
+                shutterValue.innerText = "1/1000s";
+                setActiveDot(4);
+            }
+        }
+
+        function setActiveDot(index) {
+            document.querySelectorAll('.nav-dot').forEach((dot, idx) => {
+                const indicator = dot.querySelector('span:last-child span');
+                if (idx + 1 === index) {
+                    indicator.classList.remove('scale-0');
+                    indicator.classList.add('scale-100');
+                    dot.classList.add('text-studio-neon');
+                } else {
+                    indicator.classList.remove('scale-100');
+                    indicator.classList.add('scale-0');
+                    dot.classList.remove('text-studio-neon');
+                }
+            });
+        }
+
+        function scrollToSection(index) {
+            const section = document.getElementById(`section-${index}`);
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth' });
+                playShutterAudio();
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            scrollPercent += (targetScrollPercent - scrollPercent) * 0.085;
+            updateThreeJSPositions(scrollPercent);
+
+            camera.position.x += (mouseX * 0.45 - camera.position.x) * 0.05;
+            camera.position.y += (mouseY * 0.45 - camera.position.y) * 0.05;
+            camera.lookAt(0, scrollPercent < 0.5 ? 0.2 : -0.2, 0);
+
+            const neonMaterial = neonGroup.children[0]?.material;
+            if (neonMaterial) {
+                neonMaterial.emissiveIntensity = 2.0 + Math.sin(Date.now() * 0.003) * 0.3;
+            }
+
+            if (points) {
+                points.rotation.y += 0.0008;
+                points.rotation.x += 0.0004;
+            }
+
+            const sway = Math.sin(Date.now() * 0.001) * 0.05;
+            coneLeft.rotation.z = (Math.PI / 6) + sway;
+            coneRight.rotation.z = (-Math.PI / 6) - sway;
+
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('scroll-wrapper').addEventListener('scroll', (e) => {
+            const maxScroll = e.target.scrollHeight - e.target.clientHeight;
+            const currentScroll = e.target.scrollTop;
+            targetScrollPercent = currentScroll / maxScroll;
+            updateHudElements(targetScrollPercent);
+        });
+
+        function setAttendance(choice) {
+            isAttending = choice;
+            const btnYes = document.getElementById('btn-attending-yes');
+            const btnNo = document.getElementById('btn-attending-no');
+
+            if (choice) {
+                btnYes.className = "py-2 px-3 text-xs font-bold rounded-md bg-studio-neon text-white transition-all";
+                btnNo.className = "py-2 px-3 text-xs font-bold rounded-md text-white/60 hover:text-white transition-all";
+            } else {
+                btnYes.className = "py-2 px-3 text-xs font-bold rounded-md text-white/60 hover:text-white transition-all";
+                btnNo.className = "py-2 px-3 text-xs font-bold rounded-md bg-zinc-700 text-white transition-all";
+            }
+            playShutterAudio();
+        }
+
+        function triggerPhysicalShutter() {
+            const flash = document.getElementById('flash-overlay');
+            flash.classList.remove('flash-active');
+            void flash.offsetWidth; 
+            flash.classList.add('flash-active');
+            playShutterAudio();
+
+            if (window.flashLight) {
+                window.flashLight.intensity = 8.0;
+                setTimeout(() => {
+                    window.flashLight.intensity = 0;
+                }, 120);
+            }
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            triggerPhysicalShutter();
+
+            const name = document.getElementById('rsvp-name').value;
+            const guests = document.getElementById('rsvp-guests').value;
+
+            console.log("RSVP REGISTERED:", { name, isAttending, guests });
+
+            const overlay = document.getElementById('success-overlay');
+            overlay.classList.remove('pointer-events-none', 'scale-95', 'opacity-0');
+            overlay.classList.add('scale-100', 'opacity-100');
+        }
+
+        function resetRsvpForm() {
+            playShutterAudio();
+            const overlay = document.getElementById('success-overlay');
+            overlay.classList.add('pointer-events-none', 'scale-95', 'opacity-0');
+            overlay.classList.remove('scale-100', 'opacity-100');
+            document.getElementById('rsvpForm').reset();
+            setAttendance(true);
+        }
+
+        window.onload = function() {
+            initWebGL();
+            animate();
+            setActiveDot(1);
+        }
+    </script>
+</body>
+</html>
