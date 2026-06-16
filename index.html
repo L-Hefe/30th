@@ -340,6 +340,25 @@
                 </div>
 
             </div>
+            <!-- Interactive Scroll Indicator -->
+            <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 opacity-95 select-none z-30 pointer-events-auto cursor-pointer w-[90%] max-w-sm" onclick="scrollToSection(3)">
+                <div class="glass border border-studio-neon/50 px-4 py-3 rounded-2xl flex items-center gap-3.5 shadow-[0_0_30px_rgba(255,51,102,0.3)] bg-studio-dark/95 transition-all hover:scale-105 active:scale-95 animate-pulse">
+                    <div class="w-3.5 h-3.5 rounded-full bg-studio-neon flex items-center justify-center relative">
+                        <span class="absolute w-full h-full rounded-full bg-studio-neon animate-ping opacity-75"></span>
+                        <i class="fa-solid fa-angles-down text-[8px] text-white"></i>
+                    </div>
+                    <div class="text-left leading-tight">
+                        <span class="text-[9px] font-mono tracking-wider text-studio-neon block uppercase font-extrabold">// SWIPE UP / SCROLL DOWN</span>
+                        <span class="text-xs font-sans text-white uppercase tracking-widest font-black flex items-center gap-1">
+                            REVEAL THE GALLERY <i class="fa-solid fa-arrow-down text-studio-gold animate-bounce text-sm ml-1"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="w-[22px] h-[36px] rounded-full border-2 border-white/50 flex justify-center p-1 bg-studio-dark/60 shadow-inner">
+                    <div class="w-1.5 h-2 bg-studio-gold rounded-full" style="animation: scrollMove 1.5s infinite ease-in-out;"></div>
+                </div>
+            </div>
+
         </section>
 
         <!-- EXPOSURE 03: THE GALLERY LAB (Interactive Polaroids Highlight) -->
@@ -398,6 +417,25 @@
                 </div>
 
             </div>
+            <!-- Interactive Scroll Indicator -->
+            <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 opacity-95 select-none z-30 pointer-events-auto cursor-pointer w-[90%] max-w-sm" onclick="scrollToSection(4)">
+                <div class="glass border border-studio-neon/50 px-4 py-3 rounded-2xl flex items-center gap-3.5 shadow-[0_0_30px_rgba(255,51,102,0.3)] bg-studio-dark/95 transition-all hover:scale-105 active:scale-95 animate-pulse">
+                    <div class="w-3.5 h-3.5 rounded-full bg-studio-neon flex items-center justify-center relative">
+                        <span class="absolute w-full h-full rounded-full bg-studio-neon animate-ping opacity-75"></span>
+                        <i class="fa-solid fa-angles-down text-[8px] text-white"></i>
+                    </div>
+                    <div class="text-left leading-tight">
+                        <span class="text-[9px] font-mono tracking-wider text-studio-neon block uppercase font-extrabold">// SWIPE UP / SCROLL DOWN</span>
+                        <span class="text-xs font-sans text-white uppercase tracking-widest font-black flex items-center gap-1">
+                            SECURE THE FRAME <i class="fa-solid fa-arrow-down text-studio-gold animate-bounce text-sm ml-1"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="w-[22px] h-[36px] rounded-full border-2 border-white/50 flex justify-center p-1 bg-studio-dark/60 shadow-inner">
+                    <div class="w-1.5 h-2 bg-studio-gold rounded-full" style="animation: scrollMove 1.5s infinite ease-in-out;"></div>
+                </div>
+            </div>
+
         </section>
 
         <!-- EXPOSURE 04: FOCUS / RSVP FORM -->
@@ -1162,6 +1200,51 @@
             const glassElement = new THREE.Mesh(glassGeo, glassMat);
             glassElement.position.z = 0.31;
             barrelGroup.add(glassElement);
+
+            // Visible birthday marking embedded on the front lens glass
+            const lensCanvas = document.createElement('canvas');
+            lensCanvas.width = 512;
+            lensCanvas.height = 512;
+            const lensCtx = lensCanvas.getContext('2d');
+
+            const lensGradient = lensCtx.createRadialGradient(256, 256, 20, 256, 256, 245);
+            lensGradient.addColorStop(0, 'rgba(255,255,255,0.92)');
+            lensGradient.addColorStop(0.36, 'rgba(255,170,68,0.95)');
+            lensGradient.addColorStop(0.68, 'rgba(255,51,102,0.9)');
+            lensGradient.addColorStop(1, 'rgba(255,51,102,0)');
+            lensCtx.fillStyle = lensGradient;
+            lensCtx.beginPath();
+            lensCtx.arc(256, 256, 236, 0, Math.PI * 2);
+            lensCtx.fill();
+
+            lensCtx.save();
+            lensCtx.shadowColor = 'rgba(255,51,102,1)';
+            lensCtx.shadowBlur = 28;
+            lensCtx.textAlign = 'center';
+            lensCtx.textBaseline = 'middle';
+            lensCtx.fillStyle = '#ffffff';
+            lensCtx.font = '900 142px Syne, Space Grotesk, sans-serif';
+            lensCtx.fillText('30', 236, 248);
+            lensCtx.font = '900 64px Syne, Space Grotesk, sans-serif';
+            lensCtx.fillText('th', 350, 218);
+            lensCtx.restore();
+
+            lensCtx.strokeStyle = 'rgba(255,255,255,0.45)';
+            lensCtx.lineWidth = 10;
+            lensCtx.beginPath();
+            lensCtx.arc(256, 256, 214, 0, Math.PI * 2);
+            lensCtx.stroke();
+
+            const lensThirtyTexture = new THREE.CanvasTexture(lensCanvas);
+            const lensThirtyMat = new THREE.MeshBasicMaterial({
+                map: lensThirtyTexture,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            const lensThirtyBadge = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), lensThirtyMat);
+            lensThirtyBadge.position.z = 0.345;
+            barrelGroup.add(lensThirtyBadge);
 
             // Pink coating ring on front edge to make pink lens pop beautifully
             const pinkRingGeo = new THREE.TorusGeometry(0.57, 0.03, 8, 32);
